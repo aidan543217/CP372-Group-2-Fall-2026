@@ -12,8 +12,8 @@ from socket import *
 from threading import *
 # Constants
 
-IP = "127.0.0.1"
-PORT = 12000
+IP = "127.0.0.1" # this is the local host address
+PORT = 12000 # 127.0.0.1:12000
 MAX_CLIENTS = 3 # hardcoded value
 REPO_DIR = "./repo" # server repository directory
 
@@ -24,9 +24,10 @@ if not os.path.exists(REPO_DIR):
         f.write("Server repository file 1")
     with open(os.path.join(REPO_DIR, "test2.txt"), "w") as f:
         f.write("Server repository file 2")
+# that creates a directory if it doesnt exist and creates 2 default repo files
 
 # shared threading synchronization
-connect_clients_lock = Lock() # prevents race conditions when modifying shared lists
+connect_clients_lock = Lock() # prevents race conditions when modifying shared lists as running multiple threads at once with append and remove ran simutaniously can cause data corruption so this ensures that only one thread runs at once.
 connectedClients = []# tracks active client sockets
 client_cache = (
     []
@@ -37,8 +38,8 @@ client_counter = (
 
 
 # Server socket setup
-welcomingSocket = socket(AF_INET,SOCK_STREAM)
-welcomingSocket.setsockopt(SOL_SOCKET, SO_REUSEADDR, 1)
+welcomingSocket = socket(AF_INET,SOCK_STREAM) # AF_INET is ipv4 and SOCK_STREAM is TCP
+welcomingSocket.setsockopt(SOL_SOCKET, SO_REUSEADDR, 1) # allows for address reuse since without it restarting the server will keep those addresses in use
 
 welcomingSocket.bind((IP,PORT))
 welcomingSocket.listen() # listen to the socket for updates
@@ -46,7 +47,7 @@ welcomingSocket.listen() # listen to the socket for updates
 
 def handleClient(connectionSocket, addr, client_name):
     # Handles individual client communication in a seperate thread
-    global connected_clients, client_cache
+    global connectedClients, client_cache
     
     # connection timestamp
     connect_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
@@ -57,18 +58,17 @@ def handleClient(connectionSocket, addr, client_name):
         "finished_at": "Active",
     }
     
-    with connect_clients_lock: # safely add to shared tracking structures
-        connectedClients.append(connectionSocket)
-        client_cache.append(session_info)
+    with connect_clients_lock: # locks resources so only one thread can run at once to prevent data corruption
+        client_cache.append(session_info) # update cache
     
-    connectionSocket.send("Client connected, you may now begin chatting".encode())
     
     try:
         while True:
-            data = connectionSocket.recv(1024)
+            data = connectionSocket.recv(1024) # recieve data up to 1024 bytes in size
             if not data:
                 break
-            message = data.decode().strip()
+            message = data.decode().strip() # converts received bytes to text
+            print(f"[{client_name}] {message}")
             
             # handle 'exit'
             if message.lower() == "exit":
@@ -96,7 +96,7 @@ def handleClient(connectionSocket, addr, client_name):
             # handle file streaming get <filename>
             
             elif message.startswith("get "):
-                filename = message[4:].strip()
+                filename = message[4:].strip() # extract filename after get command
                 filepath = os.path.join(REPO_DIR, filename)
                 if os.path.exists(filepath) and os.path.isfile(filepath):
                     with open(filepath, "rb") as f:
@@ -122,23 +122,36 @@ def handleClient(connectionSocket, addr, client_name):
                 if entry["name"] == client_name and entry["finished_at"] == "Active":
                     entry["finished_at"] = disconnect_time
                     break
+            print(f"{client_name} has disconnected at {disconnect_time}")
             connectionSocket.close()
             
 print(f"Server listening on {IP}:{PORT} (Max Clients: {MAX_CLIENTS})")
     
 while True:
     connectionSocket, addr = welcomingSocket.accept()
+    print(f"Connection accepted from {addr}") # show that the connection has been accepted
         
     #enforce max clients limit and incremental naming
     with connect_clients_lock:
-        if len(connectedClients) >= MAX_CLIENTS:
+        print(f"Current clients: {len(connectedClients)}")
+        if len(connectedClients) >= MAX_CLIENTS: # if there are more clients than the max clients
             connectionSocket.send(
-                "Server full! Connection rejected.")
+                "SERVER_FULL".encode()) # let client know server is full
     
             connectionSocket.close()
             continue
-        client_counter += 1
+        client_counter += 1 #increment counter
         client_name = f"Client{client_counter:02d}"
+        # post the client name
+        connectionSocket.send(f"NAME:{client_name}".encode())
+
+        # wait for client to acknowledge that it received a name
+        received_name = connectionSocket.recv(1024).decode().strip() # get the name
+        if received_name == client_name:
+            print(f"{client_name} acknowledged assigned name")
+            connectedClients.append(connectionSocket)
+
+
         
     # pass socket, address, and name into thread
     Thread(target=handleClient, args=(connectionSocket, addr, client_name), daemon=True,).start()
