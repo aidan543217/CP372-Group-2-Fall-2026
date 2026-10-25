@@ -9,12 +9,12 @@ from socket import *
 from threading import *
 from datetime import datetime
 
-HEADER_LENGTH = 20
 IP = "127.0.0.1"
 PORT = 12000
 
 connectedClients = []
 clientRecords = []
+maxClients = 3
 
 
 welcomingSocket = socket(AF_INET,SOCK_STREAM)
@@ -23,47 +23,65 @@ welcomingSocket.bind((IP,PORT))
 welcomingSocket.listen()
 
 
-def handleClient(connectionSocket):
-    addClient(connectionSocket)
+def handleClient(connectionSocket, address):
+
+    addClient(connectionSocket, address)
     connectionSocket.send(f"You are Client {len(connectedClients)}".encode())
     
     while True:
         message = connectionSocket.recv(1024).decode().strip()
         if message:
-            if message == "quit":
+            if message == "exit":
                 break
 
-            elif message == "records":
+            elif message == "status":
                 connectionSocket.send(str(clientRecords).encode())
                 continue
 
-    
-            for socket in connectedClients:
-                socket.send(message)
+            elif message == "list":
+
+                continue
+
+            else:
+                response_message = f"{message} ACK"
+                connectionSocket.send(response_message.encode())
 
         else:
             break
             
-    removeClient(connectionSocket)
+    removeClient(connectionSocket, address)
     connectionSocket.close()
 
 
-def addClient(connectionSocket):
+def addClient(connectionSocket, address):
     connectedClients.append(connectionSocket)
+
+    clientIP, clientPort = address
     clientRecords.append({
-        "socket": connectionSocket,
-        "acceptedAt": datetime.now(),
+        "ip": clientIP,
+        "port": clientPort,
+        "acceptedAt": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
         "finishedAt": None
     })
 
 
-def removeClient(connectionSocket):
+def removeClient(connectionSocket, address):
     connectedClients.remove(connectionSocket)
+
+    clientIP, clientPort = address
     for record in clientRecords:
-        if record["socket"] == connectionSocket and record["finishedAt"] is None:
-            record["finishedAt"] = datetime.now()
+        if record["ip"] == clientIP and record["port"] == clientPort and record["finishedAt"] is None:
+            record["finishedAt"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
 
 while True:
-    connectionSocket, addr = welcomingSocket.accept()
-    Thread(target=handleClient, args=(connectionSocket,), daemon=True).start()
+    connectionSocket, address = welcomingSocket.accept()
+
+    # putting the max client logic here so that a thread doesnt need to be created and immediately removed
+    if len(connectedClients) >= maxClients:
+        print(f"Connection from {address} rejected as server is full.")
+        connectionSocket.send("Connection was rejected as server is full".encode())
+        connectionSocket.close()
+        continue
+
+    Thread(target=handleClient, args=(connectionSocket,address), daemon=True).start()

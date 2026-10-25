@@ -8,24 +8,24 @@ serverPort = 12000
 clientSocket = socket(AF_INET, SOCK_STREAM)
 clientSocket.connect((serverName,serverPort))
 
-ConnectedClients = []
+welcomeMessage = clientSocket.recv(1024).decode()
+print("From Server:", welcomeMessage)
 
-def receive_messages(sock):
+if welcomeMessage != "Connection was rejected as server is full":  
+
+
   while True:
-    message = sock.recv(1024).decode()
-    if message:
-      print("From Server:", message)
+    message = input("Enter a Message: ")
+    
+    clientSocket.send(message.encode())
 
+    if message == "exit":
+       break
 
-threading.Thread(
-    target=receive_messages, args=(clientSocket,), daemon=True
-).start()
+    response = clientSocket.recv(1024).decode()
 
-while True:
-    sentence = input()
-    clientSocket.send(sentence.encode())
-
-
+    if response:
+      print("From Server:", response)
 
 clientSocket.close()
 
