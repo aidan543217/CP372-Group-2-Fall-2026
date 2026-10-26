@@ -20,7 +20,7 @@ welcomingSocket.listen()
 
 
 def handleClient(connectionSocket, address):
-    # guarantees that cleanup logic will occur even if the thread process terminates due to an error
+# guarantees that cleanup logic will occur even if the thread process terminates due to an error (such as terminating process without using exit)
     try:
         addClient(connectionSocket, address)
         connectionSocket.send(f"You are Client {len(connectedClients)}".encode())
@@ -29,7 +29,7 @@ def handleClient(connectionSocket, address):
         print(f"Connection from {str(address[0])+":"+str(address[1])} accepted. Client {id} connected.")
 
         while True:
-            message = connectionSocket.recv(1024).decode().strip() #decode the message that was sent
+            message = connectionSocket.recv(1024).decode().strip()
 
             if message:
                 checkMessage = message.lower()
@@ -75,8 +75,8 @@ def handleClient(connectionSocket, address):
                 else:
                     connectionSocket.send(f"{message} ACK".encode())
                     print(f"Message from {str(address[0])+":"+str(address[1])}: {message}")
-
-            else: # this case occurs
+            # this case occurs if the client terminates the process without sending the exit command
+            else:
                 break
 
     except (ConnectionResetError, ConnectionAbortedError):
