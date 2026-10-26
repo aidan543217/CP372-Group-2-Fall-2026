@@ -20,7 +20,7 @@ welcomingSocket.listen()
 
 
 def handleClient(connectionSocket, address):
-    # guarantees that cleanup logic will occur even if the thread terminates due to an error
+    # guarantees that cleanup logic will occur even if the thread process terminates due to an error
     try:
         addClient(connectionSocket, address)
         connectionSocket.send(f"You are Client {len(connectedClients)}".encode())
