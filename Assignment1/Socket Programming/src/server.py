@@ -20,6 +20,7 @@ welcomingSocket.listen()
 
 
 def handleClient(connectionSocket, address):
+    # guarantees that cleanup logic will occur even if the thread terminates due to an error
     try:
         addClient(connectionSocket, address)
         connectionSocket.send(f"You are Client {len(connectedClients)}".encode())
@@ -43,11 +44,11 @@ def handleClient(connectionSocket, address):
                     files = os.listdir(repoDir)
 
                     if files:
-                        file_list = ("\n".join(files)).encode()
+                        fileList = ("\n".join(files)).encode()
                     else:
-                        file_list = "No files found".encode()
+                        fileList = "No files found".encode()
 
-                    connectionSocket.send(file_list)
+                    connectionSocket.send(fileList)
                     continue
 
                 elif checkMessage.startswith("get "): # get <filename>
@@ -56,7 +57,6 @@ def handleClient(connectionSocket, address):
                     if len(parts) < 2 or not parts[1].strip():
                         connectionSocket.send("Invalid get command. Usage is: get <filename>".encode())
                         continue
-
 
                     filename = message.split(" ")[1].strip() # get the filename from the message
                     filePath = os.path.join(repoDir, filename)
@@ -78,13 +78,17 @@ def handleClient(connectionSocket, address):
 
             else: # this case occurs
                 break
+
+    except (ConnectionResetError, ConnectionAbortedError):
+        print(f"Client from {str(address[0])+":"+str(address[1])} abruptly disconnected.")
+
     finally:
         removeClient(connectionSocket, address)
         connectionSocket.close()
 
 
 def addClient(connectionSocket, address):
-    connectedClients.append(connectionSocket) # append the connection socket to the list of connected clients
+    connectedClients.append(connectionSocket)
 
     clientStatuses.append({
         "address": str(address[0])+":"+str(address[1]),
@@ -112,4 +116,4 @@ while True:
         connectionSocket.close()
         continue
 
-    Thread(target=handleClient, args=(connectionSocket,address), daemon=True).start()
+    Thread(target=handleClient, args=(connectionSocket,address)).start()
