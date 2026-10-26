@@ -99,7 +99,7 @@ def removeClient(connectionSocket, address):
     for status in clientStatuses:
         if status["address"] == str(address[0])+":"+str(address[1]) and status["finishedAt"] is None:
             status["finishedAt"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-            print(f"Client {len(connectedClients)+1} from {address} disconnected at {status['finishedAt']}.")
+            print(f"Client {len(connectedClients)+1} from {str(address[0])+":"+str(address[1])} disconnected at {status['finishedAt']}.")
 
 
 while True:
@@ -107,7 +107,7 @@ while True:
 
     # putting the max client logic here so that a thread doesnt need to be created and immediately removed
     if len(connectedClients) >= maxClients:
-        print(f"Connection from {address} rejected as server is full.")
+        print(f"Connection from {str(address[0])+":"+str(address[1])} rejected as server is full.")
         connectionSocket.send("Connection was rejected as server is full".encode())
         connectionSocket.close()
         continue
